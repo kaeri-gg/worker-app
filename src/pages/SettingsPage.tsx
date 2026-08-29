@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { updateSettings, useSettings } from '@/hooks/useSettings';
 import { FONT_SCALE_MAX, FONT_SCALE_MIN, type LanguageCode, type Settings } from '@/db/types';
@@ -165,6 +166,16 @@ export function SettingsPage() {
           Changes apply to new session entries. Ongoing session rates stay locked at
           the value snapshotted when workers were added.
         </p>
+      </section>
+
+      <section className="card p-4">
+        <Link
+          to="/settings/history"
+          className="flex items-center justify-between text-brand-700 font-medium hover:underline"
+        >
+          <span>{t('settings.historyLink')}</span>
+          <span aria-hidden="true">→</span>
+        </Link>
       </section>
     </div>
   );

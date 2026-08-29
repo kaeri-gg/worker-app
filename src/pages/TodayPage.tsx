@@ -6,6 +6,7 @@ import {
   endSession,
   getOrStartTodaySession,
   markRowPaid,
+  revertRowLatestPayment,
   summarizeSession,
   type RowSummary,
 } from '@/db/actions';
@@ -14,12 +15,11 @@ import { TypeBadge } from '@/components/TypeBadge';
 import { PickWorkerSheet } from '@/components/PickWorkerSheet';
 import { WorkerDetailSheet } from '@/components/WorkerDetailSheet';
 import { AddKgSheet } from '@/components/AddKgSheet';
-import { formatKg, formatMoney } from '@/lib/format';
+import { formatKg, formatKgShort, formatMoney } from '@/lib/format';
 import { todayISO } from '@/lib/id';
 import { useSettings } from '@/hooks/useSettings';
 import { usePagination } from '@/hooks/usePagination';
 import { Pagination } from '@/components/Pagination';
-import { FilterSheet } from '@/components/FilterSheet';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { SortMode } from '@/lib/filterSort';
 import { WORKER_TYPES, type WorkerType } from '@/db/types';
@@ -32,10 +32,16 @@ export function TodayPage() {
   const [kgRow, setKgRow] = useState<{ id: string; name: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [tab, setTab] = useState<'unpaid' | 'paid'>('unpaid');
-  const [roles, setRoles] = useState<Set<WorkerType>>(new Set());
+  const [roleFilter, setRoleFilter] = useState<WorkerType | 'all'>('all');
   const [sort, setSort] = useState<SortMode>('alpha');
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [search, setSearch] = useState('');
   const [payingRow, setPayingRow] = useState<{
+    id: string;
+    name: string;
+    amount: number;
+  } | null>(null);
+  const [revertingRow, setRevertingRow] = useState<{
     id: string;
     name: string;
     amount: number;
@@ -78,10 +84,11 @@ export function TodayPage() {
   }, [summaries]);
 
   const processed = useMemo(() => {
-    const effectiveRoles = roles.size === 0 ? new Set(WORKER_TYPES) : roles;
+    const q = search.trim().toLowerCase();
     const filtered = summaries.filter((s) => {
       if (tab === 'paid' ? !s.isPaid : s.isPaid) return false;
-      if (!effectiveRoles.has(s.type)) return false;
+      if (roleFilter !== 'all' && s.type !== roleFilter) return false;
+      if (q && !s.workerName.toLowerCase().includes(q)) return false;
       return true;
     });
     return [...filtered].sort((a, b) => {
@@ -94,7 +101,7 @@ export function TodayPage() {
           return a.totalKg - b.totalKg;
       }
     });
-  }, [summaries, tab, roles, sort]);
+  }, [summaries, tab, roleFilter, sort, search]);
   const pg = usePagination(processed);
 
   const totals = {
@@ -103,8 +110,7 @@ export function TodayPage() {
     unpaid: tabSummary.unpaidAmount,
   };
 
-  const filterActive =
-    (roles.size > 0 && roles.size < WORKER_TYPES.length) || sort !== 'alpha';
+  const filterActive = roleFilter !== 'all' || sort !== 'alpha';
 
   if (sessionResult === undefined) return null;
 
@@ -127,21 +133,13 @@ export function TodayPage() {
           <h1 className="text-xl font-semibold">{t('today.title')}</h1>
           <p className="text-sm text-neutral-500">{session.date}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button
-            className="btn-primary text-xs px-2.5 py-1.5"
-            onClick={() => setPickOpen(true)}
-          >
-            + {t('today.addWorker')}
-          </button>
-          <button
-            className="btn text-xs px-2.5 py-1.5 bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300"
-            disabled={summaries.length === 0}
-            onClick={() => setConfirming(true)}
-          >
-            {t('today.endSession')}
-          </button>
-        </div>
+        <button
+          className="btn bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 shrink-0"
+          disabled={summaries.length === 0}
+          onClick={() => setConfirming(true)}
+        >
+          {t('today.endSession')}
+        </button>
       </header>
 
       {summaries.length > 0 && (
@@ -155,57 +153,126 @@ export function TodayPage() {
         </div>
       )}
 
-      {summaries.length > 0 && (
-        <div className="flex items-stretch gap-2 mb-3">
-          <div className="grow flex gap-1 p-1 rounded-xl bg-neutral-100">
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          className="btn-primary shrink-0"
+          onClick={() => setPickOpen(true)}
+        >
+          + {t('today.addWorker')}
+        </button>
+        {summaries.length > 0 && (
+          <div className="flex items-center gap-2 ml-auto">
+            <input
+              className="input w-40"
+              placeholder={t('history.searchWorker')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             <button
-              className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
-                tab === 'unpaid' ? 'bg-white shadow-sm' : ''
+              type="button"
+              className={`btn shrink-0 !p-0 w-10 h-10 relative ${
+                showFilters || filterActive
+                  ? 'bg-brand-700 text-white hover:bg-brand-800'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
-              onClick={() => setTab('unpaid')}
+              onClick={() => setShowFilters((s) => !s)}
+              aria-label={t('filter.title')}
+              aria-expanded={showFilters}
             >
-              <div className="text-sm font-medium">{t('row.unpaid')}</div>
-              <div className="text-[11px] text-neutral-500">
-                {tabSummary.unpaidCount} ·{' '}
-                {formatMoney(tabSummary.unpaidAmount, settings.currency)}
-              </div>
-            </button>
-            <button
-              className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
-                tab === 'paid' ? 'bg-white shadow-sm' : ''
-              }`}
-              onClick={() => setTab('paid')}
-            >
-              <div className="text-sm font-medium">{t('row.paid')}</div>
-              <div className="text-[11px] text-neutral-500">
-                {tabSummary.paidCount} ·{' '}
-                {formatMoney(tabSummary.paidAmount, settings.currency)}
-              </div>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              {filterActive && !showFilters && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white" />
+              )}
             </button>
           </div>
+        )}
+      </div>
+
+      {summaries.length > 0 && showFilters && (
+        <div className="card p-3 mb-3 space-y-3">
+          <div>
+            <div className="text-xs text-neutral-500 mb-1">{t('filter.role')}</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['all', ...WORKER_TYPES] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`badge ${
+                    roleFilter === f
+                      ? 'bg-brand-700 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                  onClick={() => setRoleFilter(f)}
+                  aria-pressed={roleFilter === f}
+                >
+                  {f === 'all' ? t('filter.all') : t(`worker.type.${f}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-neutral-500 mb-1">{t('sort.label')}</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['alpha', 'kg_desc', 'kg_asc'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`badge ${
+                    sort === mode
+                      ? 'bg-brand-700 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                  onClick={() => setSort(mode)}
+                  aria-pressed={sort === mode}
+                >
+                  {mode === 'alpha'
+                    ? t('sort.alpha')
+                    : mode === 'kg_desc'
+                      ? t('sort.kgDesc')
+                      : t('sort.kgAsc')}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {summaries.length > 0 && (
+        <div className="flex gap-1 p-1 rounded-xl bg-neutral-100 mb-3">
           <button
-            className={`shrink-0 rounded-xl border p-2 relative ${
-              filterActive
-                ? 'border-brand-700 text-brand-700 bg-brand-50'
-                : 'border-neutral-200 text-neutral-600 bg-white'
+            className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
+              tab === 'unpaid' ? 'bg-white shadow-sm' : ''
             }`}
-            onClick={() => setFilterOpen(true)}
-            aria-label={t('filter.title')}
+            onClick={() => setTab('unpaid')}
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-            {filterActive && (
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-brand-700" />
-            )}
+            <div className="text-sm font-medium">{t('row.unpaid')}</div>
+            <div className="text-[11px] text-neutral-500">
+              {tabSummary.unpaidCount} ·{' '}
+              {formatMoney(tabSummary.unpaidAmount, settings.currency)}
+            </div>
+          </button>
+          <button
+            className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
+              tab === 'paid' ? 'bg-white shadow-sm' : ''
+            }`}
+            onClick={() => setTab('paid')}
+          >
+            <div className="text-sm font-medium">{t('row.paid')}</div>
+            <div className="text-[11px] text-neutral-500">
+              {tabSummary.paidCount} ·{' '}
+              {formatMoney(tabSummary.paidAmount, settings.currency)}
+            </div>
           </button>
         </div>
       )}
@@ -226,66 +293,76 @@ export function TodayPage() {
                   >
                     <Avatar name={s.workerName} src={s.workerPhoto} size={44} />
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{s.workerName}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium truncate">{s.workerName}</span>
                         <TypeBadge type={s.type} />
-                        {s.rateModel === 'per_kg' ? (
-                          <span className="text-xs text-neutral-500">
-                            {formatKg(s.totalKg, settings.weightUnit)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-neutral-500">
-                            {t('row.flatRate')}
-                          </span>
-                        )}
                       </div>
+                      {s.rateModel === 'per_kg' ? (
+                        s.kgs.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {s.kgs.map((kg, i) => (
+                              <span
+                                key={i}
+                                className="badge bg-neutral-100 text-neutral-600"
+                              >
+                                +{formatKgShort(kg)}
+                              </span>
+                            ))}
+                            <span className="badge bg-amber-100 text-amber-800">
+                              = {formatKg(s.totalKg, settings.weightUnit)}
+                            </span>
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-xs text-neutral-500 mt-0.5">
+                          {t('row.flatRate')}
+                        </div>
+                      )}
                     </div>
                   </button>
-                  <div className="text-right">
-                    <div
-                      className={`font-semibold ${
-                        s.isPaid ? 'text-neutral-400 line-through' : 'text-neutral-900'
-                      }`}
-                    >
-                      {formatMoney(s.amount, settings.currency)}
-                    </div>
-                    <div className="text-[11px] mt-0.5">
-                      {s.isPaid ? (
-                        <span className="badge bg-neutral-100 text-neutral-600">
-                          {t('row.paid')}
-                        </span>
-                      ) : s.unpaidAmount > 0 ? (
-                        <span className="badge bg-amber-100 text-amber-800">
-                          {t('row.unpaid')}
-                        </span>
-                      ) : null}
-                    </div>
+                  <div className="flex gap-2 shrink-0">
+                    {s.rateModel === 'per_kg' && (
+                      <button
+                        className="btn-secondary"
+                        disabled={s.isPaid}
+                        onClick={() =>
+                          setKgRow({ id: s.rowId, name: s.workerName })
+                        }
+                      >
+                        {t('row.addKg')}
+                      </button>
+                    )}
+                    {s.isPaid ? (
+                      <button
+                        className="btn bg-amber-600 text-white hover:bg-amber-700"
+                        onClick={() =>
+                          setRevertingRow({
+                            id: s.rowId,
+                            name: s.workerName,
+                            amount: s.amount,
+                          })
+                        }
+                      >
+                        {t('row.revert')}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary"
+                        disabled={
+                          s.rateModel === 'per_kg' && s.unpaidEntryCount === 0
+                        }
+                        onClick={() =>
+                          setPayingRow({
+                            id: s.rowId,
+                            name: s.workerName,
+                            amount: s.unpaidAmount,
+                          })
+                        }
+                      >
+                        {t('row.markPaid')}
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  {s.rateModel === 'per_kg' && (
-                    <button
-                      className="btn-secondary flex-1"
-                      onClick={() =>
-                        setKgRow({ id: s.rowId, name: s.workerName })
-                      }
-                    >
-                      {t('row.addKg')}
-                    </button>
-                  )}
-                  <button
-                    className="btn-primary flex-1"
-                    disabled={s.isPaid || s.unpaidAmount <= 0}
-                    onClick={() =>
-                      setPayingRow({
-                        id: s.rowId,
-                        name: s.workerName,
-                        amount: s.unpaidAmount,
-                      })
-                    }
-                  >
-                    {s.isPaid ? t('row.paid') : t('row.markPaid')}
-                  </button>
                 </div>
               </div>
             </li>
@@ -331,13 +408,26 @@ export function TodayPage() {
         confirmLabel={t('row.markPaid')}
       />
 
-      <FilterSheet
-        open={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        roles={roles}
-        onRolesChange={setRoles}
-        sort={sort}
-        onSortChange={setSort}
+      <ConfirmDialog
+        open={revertingRow !== null}
+        onClose={() => setRevertingRow(null)}
+        onConfirm={async () => {
+          if (revertingRow) await revertRowLatestPayment(revertingRow.id);
+        }}
+        title={
+          revertingRow
+            ? t('row.confirmRevertTitle', { name: revertingRow.name })
+            : ''
+        }
+        body={
+          revertingRow
+            ? t('row.confirmRevertBody', {
+                name: revertingRow.name,
+                amount: formatMoney(revertingRow.amount, settings.currency),
+              })
+            : null
+        }
+        confirmLabel={t('row.revert')}
       />
 
       <PickWorkerSheet

@@ -43,6 +43,17 @@ export interface Entry {
   paymentId?: string;
 }
 
+export type WorkerChangeKind = 'type' | 'name' | 'photo';
+
+export interface WorkerChange {
+  id: string;
+  workerId: string;
+  kind: WorkerChangeKind;
+  from: string | null;
+  to: string;
+  at: number;
+}
+
 export interface Payment {
   id: string;
   sessionId: string;
@@ -54,6 +65,7 @@ export interface Payment {
   amount: number;
   currency: string;
   at: number;
+  revertedAt?: number;
 }
 
 export type LanguageCode = 'en' | 'ka';

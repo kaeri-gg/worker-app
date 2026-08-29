@@ -7,9 +7,28 @@ import type {
   SessionRow,
   Settings,
   Worker,
+  WorkerChange,
+  WorkerChangeKind,
   WorkerType,
 } from './types';
 import { newId, todayISO } from '@/lib/id';
+
+async function logChange(
+  workerId: string,
+  kind: WorkerChangeKind,
+  from: string | null,
+  to: string,
+): Promise<void> {
+  const change: WorkerChange = {
+    id: newId(),
+    workerId,
+    kind,
+    from,
+    to,
+    at: Date.now(),
+  };
+  await db.workerChanges.add(change);
+}
 
 function rateFor(type: WorkerType, s: Settings): { rateModel: RateModel; rate: number } {
   switch (type) {
@@ -39,10 +58,23 @@ export async function createWorker(input: {
     createdAt: Date.now(),
   };
   await db.workers.add(worker);
+  await logChange(worker.id, 'type', null, worker.type);
   return worker;
 }
 
 export async function updateWorker(id: string, patch: Partial<Worker>): Promise<void> {
+  const current = await db.workers.get(id);
+  if (current) {
+    if (patch.type !== undefined && current.type !== patch.type) {
+      await logChange(id, 'type', current.type, patch.type);
+    }
+    if (patch.name !== undefined && current.name !== patch.name) {
+      await logChange(id, 'name', current.name, patch.name);
+    }
+    if (patch.photo !== undefined && (current.photo ?? '') !== (patch.photo ?? '')) {
+      await logChange(id, 'photo', current.photo ?? null, patch.photo ?? '');
+    }
+  }
   await db.workers.update(id, patch);
 }
 
@@ -88,9 +120,28 @@ export async function addWorkerToSession(
   };
   await db.sessionRows.add(row);
   if (overrideType && overrideType !== worker.type) {
+    await logChange(workerId, 'type', worker.type, overrideType);
     await db.workers.update(workerId, { type: overrideType });
   }
   return row;
+}
+
+export async function removeWorkerFromSession(
+  sessionId: string,
+  workerId: string,
+): Promise<void> {
+  const row = await db.sessionRows.where({ sessionId, workerId }).first();
+  if (!row) return;
+  const entries = await db.entries.where({ sessionRowId: row.id }).toArray();
+  if (entries.some((e) => e.paymentId)) {
+    throw new Error('Cannot remove worker with paid entries');
+  }
+  const paid = await db.payments.where({ sessionId, workerId }).first();
+  if (paid) throw new Error('Cannot remove a worker who has been paid');
+  await db.transaction('rw', db.sessionRows, db.entries, async () => {
+    await Promise.all(entries.map((e) => db.entries.delete(e.id)));
+    await db.sessionRows.delete(row.id);
+  });
 }
 
 export async function updateSessionRowRate(rowId: string, rate: number): Promise<void> {
@@ -142,6 +193,7 @@ export interface RowSummary {
   isPaid: boolean;
   entryCount: number;
   unpaidEntryCount: number;
+  kgs: number[];
 }
 
 export async function summarizeRow(row: SessionRow): Promise<RowSummary> {
@@ -149,8 +201,10 @@ export async function summarizeRow(row: SessionRow): Promise<RowSummary> {
   const workerName = worker?.name ?? 'Unknown';
   const workerPhoto = worker?.photo;
   if (row.rateModel === 'daily') {
-    const paidExists =
-      (await db.payments.where({ sessionId: row.sessionId, workerId: row.workerId }).count()) > 0;
+    const paidExists = await db.payments
+      .where({ sessionId: row.sessionId, workerId: row.workerId })
+      .filter((p) => !p.revertedAt)
+      .count() > 0;
     return {
       rowId: row.id,
       workerId: row.workerId,
@@ -166,9 +220,11 @@ export async function summarizeRow(row: SessionRow): Promise<RowSummary> {
       isPaid: paidExists,
       entryCount: 0,
       unpaidEntryCount: 0,
+      kgs: [],
     };
   }
   const entries = await db.entries.where({ sessionRowId: row.id }).toArray();
+  entries.sort((a, b) => a.at - b.at);
   const totalKg = entries.reduce((a, e) => a + e.kg, 0);
   const unpaid = entries.filter((e) => !e.paymentId);
   const unpaidKg = unpaid.reduce((a, e) => a + e.kg, 0);
@@ -189,6 +245,7 @@ export async function summarizeRow(row: SessionRow): Promise<RowSummary> {
     isPaid: entries.length > 0 && unpaid.length === 0,
     entryCount: entries.length,
     unpaidEntryCount: unpaid.length,
+    kgs: entries.map((e) => e.kg),
   };
 }
 
@@ -207,6 +264,7 @@ export async function markRowPaid(rowId: string): Promise<Payment | null> {
   if (row.rateModel === 'daily') {
     const already = await db.payments
       .where({ sessionId: row.sessionId, workerId: row.workerId })
+      .filter((p) => !p.revertedAt)
       .first();
     if (already) return null;
     const payment: Payment = {
@@ -251,6 +309,38 @@ export async function markRowPaid(rowId: string): Promise<Payment | null> {
     );
   });
   return payment;
+}
+
+export async function revertPayment(paymentId: string): Promise<void> {
+  const payment = await db.payments.get(paymentId);
+  if (!payment) throw new Error('Payment not found');
+  if (payment.revertedAt) return;
+  const session = await db.sessions.get(payment.sessionId);
+  if (!session || session.status !== 'open') {
+    throw new Error('Cannot revert: session is closed');
+  }
+  const linkedEntries = await db.entries
+    .where({ sessionRowId: payment.sessionRowId })
+    .filter((e) => e.paymentId === paymentId)
+    .toArray();
+  await db.transaction('rw', db.payments, db.entries, async () => {
+    await db.payments.update(paymentId, { revertedAt: Date.now() });
+    await Promise.all(
+      linkedEntries.map((e) => db.entries.update(e.id, { paymentId: undefined })),
+    );
+  });
+}
+
+export async function revertRowLatestPayment(rowId: string): Promise<void> {
+  const row = await db.sessionRows.get(rowId);
+  if (!row) throw new Error('Session row not found');
+  const active = await db.payments
+    .where({ sessionId: row.sessionId, workerId: row.workerId })
+    .filter((p) => !p.revertedAt && p.sessionRowId === rowId)
+    .sortBy('at');
+  const latest = active[active.length - 1];
+  if (!latest) throw new Error('No active payment to revert');
+  await revertPayment(latest.id);
 }
 
 export async function endSession(sessionId: string): Promise<void> {
