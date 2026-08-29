@@ -1,0 +1,131 @@
+{
+  "app": {
+    "title": "Harvest Tracker"
+  },
+  "nav": {
+    "today": "Today",
+    "workers": "Workers",
+    "sessions": "Sessions",
+    "payments": "Payments",
+    "settings": "Settings"
+  },
+  "worker": {
+    "type": {
+      "picker": "Picker",
+      "driver": "Driver",
+      "shaker": "Shaker",
+      "broker": "Broker"
+    },
+    "name": "Name",
+    "namePlaceholder": "Worker name",
+    "photo": "Photo (optional)",
+    "typeLabel": "Type"
+  },
+  "today": {
+    "title": "Today",
+    "empty": "No workers in this session yet.",
+    "addWorker": "Worker",
+    "endSession": "End session",
+    "endSessionConfirm": "End session and settle all unpaid workers?",
+    "startSession": "Start today's session",
+    "totalPaid": "Paid",
+    "totalUnpaid": "Unpaid",
+    "totalKg": "Total kg"
+  },
+  "row": {
+    "addKg": "+ kg",
+    "markPaid": "Mark paid",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "flatRate": "Flat rate",
+    "confirmPaidTitle": "Mark {{name}} as paid?",
+    "confirmPaidBody": "{{amount}} will be recorded as paid to {{name}}."
+  },
+  "addKg": {
+    "title": "Add kg for {{name}}",
+    "amountLabel": "Kilograms",
+    "add": "Add",
+    "cancel": "Cancel"
+  },
+  "workerDetail": {
+    "history": "Today's entries",
+    "noEntries": "No entries yet today.",
+    "editRateForToday": "Rate today",
+    "flatPay": "Flat pay for today",
+    "close": "Close"
+  },
+  "roster": {
+    "title": "Workers",
+    "empty": "No workers yet.",
+    "addNew": "Add worker",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "archive": "Archive",
+    "unarchive": "Restore"
+  },
+  "addWorker": {
+    "title": "New worker",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "pickWorker": {
+    "title": "Add to today",
+    "existing": "Pick from roster",
+    "createNew": "Create new worker",
+    "alreadyAdded": "Already added",
+    "typePrompt": "Working as today",
+    "confirm": "Add"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "empty": "No past sessions.",
+    "open": "Open",
+    "closed": "Closed",
+    "workers": "workers",
+    "back": "Back"
+  },
+  "payments": {
+    "title": "Payments",
+    "empty": "No payments yet.",
+    "allWorkers": "All workers"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "currency": "Currency",
+    "weightUnit": "Weight unit",
+    "fontSize": "Text size",
+    "fontSizePreview": "Preview",
+    "rates": "Pay rates",
+    "pickerRate": "Picker rate (per kg)",
+    "driverRate": "Driver daily rate",
+    "shakerRate": "Shaker daily rate",
+    "brokerRate": "Broker daily rate",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "common": {
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "filter": {
+    "role": "Role",
+    "status": "Status",
+    "allRoles": "All roles",
+    "allStatus": "All",
+    "title": "Filter & sort",
+    "roles": "Roles",
+    "all": "All",
+    "apply": "Apply",
+    "reset": "Reset"
+  },
+  "sort": {
+    "label": "Sort",
+    "alpha": "A → Z",
+    "kgDesc": "Kg ↓",
+    "kgAsc": "Kg ↑"
+  }
+}

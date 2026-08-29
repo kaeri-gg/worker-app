@@ -1,0 +1,131 @@
+{
+  "app": {
+    "title": "მოსავლის აღრიცხვა"
+  },
+  "nav": {
+    "today": "დღეს",
+    "workers": "მუშები",
+    "sessions": "სესიები",
+    "payments": "გადახდები",
+    "settings": "პარამეტრები"
+  },
+  "worker": {
+    "type": {
+      "picker": "მკრეფავი",
+      "driver": "მძღოლი",
+      "shaker": "მრხევი",
+      "broker": "ბროკერი"
+    },
+    "name": "სახელი",
+    "namePlaceholder": "მუშის სახელი",
+    "photo": "ფოტო (არასავალდებულო)",
+    "typeLabel": "ტიპი"
+  },
+  "today": {
+    "title": "დღეს",
+    "empty": "დღეს მუშები ჯერ არ დამატებულა.",
+    "addWorker": "მუშა",
+    "endSession": "სესიის დახურვა",
+    "endSessionConfirm": "დახუროთ სესია და გადაიხადოთ ყველა გადაუხდელი?",
+    "startSession": "დღევანდელი სესიის დაწყება",
+    "totalPaid": "გადახდილი",
+    "totalUnpaid": "გადასახდელი",
+    "totalKg": "სულ კგ"
+  },
+  "row": {
+    "addKg": "+ კგ",
+    "markPaid": "გადახდილად მონიშვნა",
+    "paid": "გადახდილი",
+    "unpaid": "გადაუხდელი",
+    "flatRate": "ფიქსირებული",
+    "confirmPaidTitle": "მონიშნო {{name}} გადახდილად?",
+    "confirmPaidBody": "{{amount}} ჩაითვლება, როგორც გადახდილი — {{name}}."
+  },
+  "addKg": {
+    "title": "დაამატე კგ — {{name}}",
+    "amountLabel": "კილოგრამი",
+    "add": "დამატება",
+    "cancel": "გაუქმება"
+  },
+  "workerDetail": {
+    "history": "დღევანდელი ჩანაწერები",
+    "noEntries": "დღეს ჯერ ჩანაწერი არ არის.",
+    "editRateForToday": "დღევანდელი ტარიფი",
+    "flatPay": "დღიური ფიქსირებული",
+    "close": "დახურვა"
+  },
+  "roster": {
+    "title": "მუშები",
+    "empty": "მუშები ჯერ არ არის.",
+    "addNew": "მუშის დამატება",
+    "archived": "არქივი",
+    "showArchived": "არქივის ჩვენება",
+    "archive": "დაარქივება",
+    "unarchive": "აღდგენა"
+  },
+  "addWorker": {
+    "title": "ახალი მუშა",
+    "save": "შენახვა",
+    "cancel": "გაუქმება"
+  },
+  "pickWorker": {
+    "title": "დღეს დამატება",
+    "existing": "აირჩიე სიიდან",
+    "createNew": "ახლის შექმნა",
+    "alreadyAdded": "უკვე დამატებულია",
+    "typePrompt": "დღეს მუშაობს როგორც",
+    "confirm": "დამატება"
+  },
+  "sessions": {
+    "title": "სესიები",
+    "empty": "წარსული სესია არ არის.",
+    "open": "ღია",
+    "closed": "დახურული",
+    "workers": "მუშა",
+    "back": "უკან"
+  },
+  "payments": {
+    "title": "გადახდები",
+    "empty": "გადახდები ჯერ არ არის.",
+    "allWorkers": "ყველა მუშა"
+  },
+  "settings": {
+    "title": "პარამეტრები",
+    "language": "ენა",
+    "currency": "ვალუტა",
+    "weightUnit": "წონის ერთეული",
+    "fontSize": "ტექსტის ზომა",
+    "fontSizePreview": "მაგალითი",
+    "rates": "ტარიფები",
+    "pickerRate": "მკრეფავის ტარიფი (კგ-ზე)",
+    "driverRate": "მძღოლის დღიური",
+    "shakerRate": "მრხევის დღიური",
+    "brokerRate": "ბროკერის დღიური",
+    "save": "შენახვა",
+    "saved": "შენახულია"
+  },
+  "common": {
+    "delete": "წაშლა",
+    "cancel": "გაუქმება",
+    "confirm": "დადასტურება",
+    "yes": "დიახ",
+    "no": "არა"
+  },
+  "filter": {
+    "role": "როლი",
+    "status": "სტატუსი",
+    "allRoles": "ყველა როლი",
+    "allStatus": "ყველა",
+    "title": "ფილტრი და დალაგება",
+    "roles": "როლები",
+    "all": "ყველა",
+    "apply": "გამოყენება",
+    "reset": "საწყისზე"
+  },
+  "sort": {
+    "label": "დალაგება",
+    "alpha": "ა → ჰ",
+    "kgDesc": "კგ ↓",
+    "kgAsc": "კგ ↑"
+  }
+}
