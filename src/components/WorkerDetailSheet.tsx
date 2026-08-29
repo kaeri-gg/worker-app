@@ -10,6 +10,7 @@ import { db } from '@/db/db';
 import {
   deleteEntry,
   markRowPaid,
+  revertRowLatestPayment,
   summarizeRow,
   updateSessionRowRate,
 } from '@/db/actions';
@@ -29,6 +30,7 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
   const [addKgOpen, setAddKgOpen] = useState(false);
   const [rateDraft, setRateDraft] = useState<string | null>(null);
   const [confirmPay, setConfirmPay] = useState(false);
+  const [confirmRevert, setConfirmRevert] = useState(false);
 
   const row = useLiveQuery(
     () => (rowId ? db.sessionRows.get(rowId) : undefined),
@@ -42,6 +44,10 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
     async () =>
       rowId ? await db.entries.where({ sessionRowId: rowId }).sortBy('at') : [],
     [rowId],
+  );
+  const session = useLiveQuery(
+    () => (row ? db.sessions.get(row.sessionId) : undefined),
+    [row?.sessionId],
   );
 
   if (!row || !summary) return <Sheet open={open} onClose={onClose}>{null}</Sheet>;
@@ -78,17 +84,34 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
             </button>
             <div className="flex gap-2">
               {row.rateModel === 'per_kg' && (
-                <button className="btn-secondary" onClick={() => setAddKgOpen(true)}>
+                <button
+                  className="btn-secondary"
+                  disabled={summary.isPaid}
+                  onClick={() => setAddKgOpen(true)}
+                >
                   {t('row.addKg')}
                 </button>
               )}
-              <button
-                className="btn-primary"
-                disabled={summary.isPaid || summary.unpaidAmount <= 0}
-                onClick={() => setConfirmPay(true)}
-              >
-                {summary.isPaid ? t('row.paid') : t('row.markPaid')}
-              </button>
+              {summary.isPaid ? (
+                <button
+                  className="btn bg-amber-600 text-white hover:bg-amber-700 disabled:bg-amber-300"
+                  disabled={session?.status !== 'open'}
+                  onClick={() => setConfirmRevert(true)}
+                >
+                  {t('row.revert')}
+                </button>
+              ) : (
+                <button
+                  className="btn-primary"
+                  disabled={
+                    row.rateModel === 'per_kg' &&
+                    summary.unpaidEntryCount === 0
+                  }
+                  onClick={() => setConfirmPay(true)}
+                >
+                  {t('row.markPaid')}
+                </button>
+              )}
             </div>
           </div>
         }
@@ -181,6 +204,19 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
           amount: formatMoney(summary.unpaidAmount, settings.currency),
         })}
         confirmLabel={t('row.markPaid')}
+      />
+      <ConfirmDialog
+        open={confirmRevert}
+        onClose={() => setConfirmRevert(false)}
+        onConfirm={async () => {
+          await revertRowLatestPayment(row.id);
+        }}
+        title={t('row.confirmRevertTitle', { name: summary.workerName })}
+        body={t('row.confirmRevertBody', {
+          name: summary.workerName,
+          amount: formatMoney(summary.amount, settings.currency),
+        })}
+        confirmLabel={t('row.revert')}
       />
     </>
   );

@@ -38,8 +38,12 @@
     "paid": "გადახდილი",
     "unpaid": "გადაუხდელი",
     "flatRate": "ფიქსირებული",
+    "revert": "დაბრუნება",
+    "reverted": "დაბრუნებულია",
     "confirmPaidTitle": "მონიშნო {{name}} გადახდილად?",
-    "confirmPaidBody": "{{amount}} ჩაითვლება, როგორც გადახდილი — {{name}}."
+    "confirmPaidBody": "{{amount}} ჩაითვლება, როგორც გადახდილი — {{name}}.",
+    "confirmRevertTitle": "დააბრუნო {{name}}-ის გადახდა?",
+    "confirmRevertBody": "{{amount}} ({{name}}) კვლავ გადაუხდელი გახდება. ეს მოქმედება ჩაიწერება."
   },
   "addKg": {
     "title": "დაამატე კგ — {{name}}",
@@ -74,7 +78,10 @@
     "createNew": "ახლის შექმნა",
     "alreadyAdded": "უკვე დამატებულია",
     "typePrompt": "დღეს მუშაობს როგორც",
-    "confirm": "დამატება"
+    "confirm": "დამატება",
+    "remove": "სესიიდან წაშლა",
+    "editType": "მუშის ტიპის შეცვლა",
+    "cannotRemove": "ვერ წაიშლება: ამ მუშას უკვე აქვს ჩანაწერები ან გადახდები."
   },
   "sessions": {
     "title": "სესიები",
@@ -102,7 +109,27 @@
     "shakerRate": "მრხევის დღიური",
     "brokerRate": "ბროკერის დღიური",
     "save": "შენახვა",
-    "saved": "შენახულია"
+    "saved": "შენახულია",
+    "history": "მუშის ისტორია",
+    "historyLink": "ცვლილებების ისტორია"
+  },
+  "history": {
+    "title": "მუშის ისტორია",
+    "empty": "ცვლილებები ჯერ არ არის.",
+    "changeCount_one": "{{count}} ცვლილება",
+    "changeCount_other": "{{count}} ცვლილება",
+    "totalPaid": "სულ გადახდილი",
+    "initialType": "საწყისი ტიპი",
+    "changedFromTo": "{{from}} → {{to}}",
+    "searchWorker": "მოძებნე მუშა…",
+    "filterKind": "გაფილტრე ცვლილებით",
+    "filterType": "გაფილტრე ტიპით",
+    "photoUpdated": "ფოტო განახლდა",
+    "kind": {
+      "type": "ტიპი",
+      "name": "სახელი",
+      "photo": "ფოტო"
+    }
   },
   "common": {
     "delete": "წაშლა",

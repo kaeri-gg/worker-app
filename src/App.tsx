@@ -8,6 +8,7 @@ import { SessionsPage } from '@/pages/SessionsPage';
 import { SessionDetailPage } from '@/pages/SessionDetailPage';
 import { PaymentsPage } from '@/pages/PaymentsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { WorkerHistoryPage } from '@/pages/WorkerHistoryPage';
 import { useSettings } from '@/hooks/useSettings';
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/sessions/:id" element={<SessionDetailPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/history" element={<WorkerHistoryPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Route>
       </Routes>

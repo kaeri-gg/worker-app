@@ -19,6 +19,11 @@ export function formatKg(kg: number, unit: string = 'kg'): string {
   return `${rounded.toFixed(2)} ${unit}`;
 }
 
+export function formatKgShort(kg: number): string {
+  const rounded = Math.round(kg * 100) / 100;
+  return rounded.toString();
+}
+
 export function formatTime(ts: number, locale = 'en-GB'): string {
   return new Date(ts).toLocaleTimeString(locale, {
     hour: '2-digit',

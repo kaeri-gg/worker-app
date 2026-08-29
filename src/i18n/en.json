@@ -38,8 +38,12 @@
     "paid": "Paid",
     "unpaid": "Unpaid",
     "flatRate": "Flat rate",
+    "revert": "Revert",
+    "reverted": "Reverted",
     "confirmPaidTitle": "Mark {{name}} as paid?",
-    "confirmPaidBody": "{{amount}} will be recorded as paid to {{name}}."
+    "confirmPaidBody": "{{amount}} will be recorded as paid to {{name}}.",
+    "confirmRevertTitle": "Revert payment for {{name}}?",
+    "confirmRevertBody": "{{amount}} paid to {{name}} will be moved back to unpaid. This action is recorded."
   },
   "addKg": {
     "title": "Add kg for {{name}}",
@@ -74,7 +78,10 @@
     "createNew": "Create new worker",
     "alreadyAdded": "Already added",
     "typePrompt": "Working as today",
-    "confirm": "Add"
+    "confirm": "Add",
+    "remove": "Remove from session",
+    "editType": "Edit worker type",
+    "cannotRemove": "Cannot remove: this worker already has logged work or payments."
   },
   "sessions": {
     "title": "Sessions",
@@ -102,7 +109,27 @@
     "shakerRate": "Shaker daily rate",
     "brokerRate": "Broker daily rate",
     "save": "Save",
-    "saved": "Saved"
+    "saved": "Saved",
+    "history": "Worker history",
+    "historyLink": "See worker change history"
+  },
+  "history": {
+    "title": "Worker history",
+    "empty": "No worker changes yet.",
+    "changeCount_one": "{{count}} change",
+    "changeCount_other": "{{count}} changes",
+    "totalPaid": "Total paid",
+    "initialType": "Initial type",
+    "changedFromTo": "{{from}} → {{to}}",
+    "searchWorker": "Search worker…",
+    "filterKind": "Filter by change",
+    "filterType": "Filter by type",
+    "photoUpdated": "Photo updated",
+    "kind": {
+      "type": "Type",
+      "name": "Name",
+      "photo": "Photo"
+    }
   },
   "common": {
     "delete": "Delete",
