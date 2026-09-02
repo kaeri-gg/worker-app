@@ -7,15 +7,14 @@ import { Avatar } from '@/components/Avatar';
 import { TypeBadge } from '@/components/TypeBadge';
 import { formatDate, formatKg, formatKgShort, formatMoney } from '@/lib/format';
 import { useSettings } from '@/hooks/useSettings';
-import { usePagination } from '@/hooks/usePagination';
-import { Pagination } from '@/components/Pagination';
-import {
-  applyFilterSort,
-  DEFAULT_FILTER_SORT,
-  type FilterSortState,
-} from '@/lib/filterSort';
-import { WORKER_TYPES } from '@/db/types';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import type { DriverPayMode } from '@/db/types';
+
+const DRIVER_MODE_KEY: Record<DriverPayMode, string> = {
+  per_pax: 'addDriver.driverMode.per_pax',
+  fixed: 'addDriver.driverMode.fixed',
+  per_kg: 'addDriver.driverMode.per_kg',
+};
 
 export function SessionDetailPage() {
   const { id } = useParams();
@@ -28,21 +27,29 @@ export function SessionDetailPage() {
       async () => (id ? await summarizeSession(id) : []),
       [id],
     ) ?? [];
-  const [fs, setFs] = useState<FilterSortState>(DEFAULT_FILTER_SORT);
-  const [showFilters, setShowFilters] = useState(false);
-  const [search, setSearch] = useState('');
-  const filterActive =
-    fs.role !== DEFAULT_FILTER_SORT.role ||
-    fs.paid !== DEFAULT_FILTER_SORT.paid ||
-    fs.sort !== DEFAULT_FILTER_SORT.sort;
-  const processed = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const searched = q
-      ? summaries.filter((s) => s.workerName.toLowerCase().includes(q))
-      : summaries;
-    return applyFilterSort(searched, fs, { paidLast: true });
-  }, [summaries, fs, search]);
-  const pg = usePagination(processed);
+
+  const drivers = useMemo(
+    () =>
+      [...summaries]
+        .filter((s) => s.type === 'driver')
+        .sort((a, b) => a.workerName.localeCompare(b.workerName)),
+    [summaries],
+  );
+  const workersByDriver = useMemo(() => {
+    const map = new Map<string, RowSummary[]>();
+    for (const s of summaries) {
+      if (s.type === 'driver') continue;
+      const key = s.parentDriverRowId ?? '';
+      if (!key) continue;
+      const list = map.get(key) ?? [];
+      list.push(s);
+      map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.workerName.localeCompare(b.workerName));
+    }
+    return map;
+  }, [summaries]);
 
   if (!session) {
     return (
@@ -56,7 +63,9 @@ export function SessionDetailPage() {
 
   const totalPaid = summaries.reduce((a, s) => a + (s.amount - s.unpaidAmount), 0);
   const totalUnpaid = summaries.reduce((a, s) => a + s.unpaidAmount, 0);
-  const totalKg = summaries.reduce((a, s) => a + s.totalKg, 0);
+  const totalKg = summaries
+    .filter((s) => s.type !== 'driver')
+    .reduce((a, s) => a + s.totalKg, 0);
 
   return (
     <div>
@@ -85,193 +94,120 @@ export function SessionDetailPage() {
         </div>
       </div>
 
-      {summaries.length > 0 && (
-        <div className="mb-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div />
-            <div className="flex items-center gap-2">
-              <input
-                className="input"
-                placeholder={t('history.searchWorker')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <button
-                type="button"
-                className={`btn shrink-0 !p-0 w-10 h-10 relative ${
-                  showFilters || filterActive
-                    ? 'bg-brand-700 text-white hover:bg-brand-800'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                }`}
-                onClick={() => setShowFilters((s) => !s)}
-                aria-label={t('filter.title')}
-                aria-expanded={showFilters}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                >
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                </svg>
-                {filterActive && !showFilters && (
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white" />
-                )}
-              </button>
-            </div>
-          </div>
-          {showFilters && (
-            <div className="card p-3 space-y-3">
-              <div>
-                <div className="text-xs text-neutral-500 mb-1">{t('filter.role')}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {(['all', ...WORKER_TYPES] as const).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      className={`badge ${
-                        fs.role === f
-                          ? 'bg-brand-700 text-white'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      }`}
-                      onClick={() => setFs((c) => ({ ...c, role: f }))}
-                      aria-pressed={fs.role === f}
-                    >
-                      {f === 'all' ? t('filter.all') : t(`worker.type.${f}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-neutral-500 mb-1">{t('filter.status')}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {(['all', 'unpaid', 'paid'] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`badge ${
-                        fs.paid === s
-                          ? 'bg-brand-700 text-white'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      }`}
-                      onClick={() => setFs((c) => ({ ...c, paid: s }))}
-                      aria-pressed={fs.paid === s}
-                    >
-                      {s === 'all'
-                        ? t('filter.all')
-                        : s === 'unpaid'
-                          ? t('row.unpaid')
-                          : t('row.paid')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-neutral-500 mb-1">{t('sort.label')}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {(['alpha', 'kg_desc', 'kg_asc'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={`badge ${
-                        fs.sort === mode
-                          ? 'bg-brand-700 text-white'
-                          : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                      }`}
-                      onClick={() => setFs((c) => ({ ...c, sort: mode }))}
-                      aria-pressed={fs.sort === mode}
-                    >
-                      {mode === 'alpha'
-                        ? t('sort.alpha')
-                        : mode === 'kg_desc'
-                          ? t('sort.kgDesc')
-                          : t('sort.kgAsc')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+      {drivers.length === 0 ? (
+        <div className="card p-6 text-center text-neutral-500">
+          {t('today.emptyDrivers')}
         </div>
-      )}
-
-      <ul className="space-y-2">
-        {pg.sliced.map((s) => (
-          <li key={s.rowId} className="card p-3">
-            <div className="flex items-center gap-3">
-              <Avatar name={s.workerName} src={s.workerPhoto} size={40} />
-              <div className="grow min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-medium truncate">{s.workerName}</span>
-                  <TypeBadge type={s.type} />
-                </div>
-                {s.rateModel === 'per_kg' && (
-                  <div className="text-xs text-neutral-500 mt-0.5">
-                    {formatKg(s.totalKg, settings.weightUnit)}
+      ) : (
+        <ul className="space-y-4">
+          {drivers.map((d) => {
+            const workers = workersByDriver.get(d.rowId) ?? [];
+            return (
+              <li key={d.rowId} className="card p-3 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Avatar name={d.workerName} src={d.workerPhoto} size={44} />
+                  <div className="grow min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium truncate">{d.workerName}</span>
+                      <TypeBadge type="driver" />
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      {d.driverPayMode && (
+                        <span className="badge bg-blue-50 text-blue-700">
+                          {t(DRIVER_MODE_KEY[d.driverPayMode])}
+                        </span>
+                      )}
+                      {d.workerPayMode && (
+                        <span className="badge bg-neutral-100 text-neutral-600">
+                          {t(`addDriver.workerMode.${d.workerPayMode}`)}
+                        </span>
+                      )}
+                      <span>· {workers.length} {t('sessions.workers')}</span>
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className="text-right">
-                <div className="font-semibold">
-                  {formatMoney(s.amount, settings.currency)}
-                </div>
-                {s.isPaid ? (
-                  <span className="badge bg-neutral-100 text-neutral-600">
-                    {t('row.paid')}
-                  </span>
-                ) : (
-                  <span className="badge bg-amber-100 text-amber-800">
-                    {t('row.unpaid')}
-                  </span>
-                )}
-              </div>
-            </div>
-            {s.rateModel === 'per_kg' && s.kgs.length > 0 && (
-              <>
-                <hr className="my-2 border-neutral-200" />
-                <div className="flex flex-wrap gap-1">
-                  {s.kgs.map((kg, i) => {
-                    const progress =
-                      s.kgs.length > 1 ? i / (s.kgs.length - 1) : 1;
-                    const lightness = 88 - progress * 46;
-                    const bg = `hsl(210, 90%, ${lightness}%)`;
-                    const color =
-                      lightness > 62 ? 'hsl(210, 90%, 22%)' : 'white';
-                    return (
-                      <span
-                        key={i}
-                        className="badge"
-                        style={{ backgroundColor: bg, color }}
-                      >
-                        +{formatKgShort(kg)}
+                  <div className="text-right shrink-0">
+                    <div className="font-semibold">
+                      {formatMoney(d.amount, settings.currency)}
+                    </div>
+                    {d.isPaid ? (
+                      <span className="badge bg-neutral-100 text-neutral-600">
+                        {t('row.paid')}
                       </span>
-                    );
-                  })}
+                    ) : (
+                      <span className="badge bg-amber-100 text-amber-800">
+                        {t('row.unpaid')}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-      {processed.length > 0 && (
-        <Pagination
-          page={pg.page}
-          pageSize={pg.pageSize}
-          pageCount={pg.pageCount}
-          total={pg.total}
-          start={pg.start}
-          end={pg.end}
-          canPrev={pg.canPrev}
-          canNext={pg.canNext}
-          onPageSizeChange={pg.setPageSize}
-          onPrev={pg.prev}
-          onNext={pg.next}
-        />
+
+                <div className="pl-2 border-l-2 border-neutral-100 space-y-2">
+                  {workers.length === 0 ? (
+                    <div className="text-sm text-neutral-500 py-2 px-1">
+                      {t('today.driverEmpty')}
+                    </div>
+                  ) : (
+                    workers.map((s) => (
+                      <div key={s.rowId}>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={s.workerName} src={s.workerPhoto} size={36} />
+                          <div className="grow min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-medium truncate">
+                                {s.workerName}
+                              </span>
+                              <TypeBadge type={s.type} />
+                            </div>
+                            {s.rateModel === 'per_kg' && (
+                              <div className="text-xs text-neutral-500 mt-0.5">
+                                {formatKg(s.totalKg, settings.weightUnit)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold">
+                              {formatMoney(s.amount, settings.currency)}
+                            </div>
+                            {s.isPaid ? (
+                              <span className="badge bg-neutral-100 text-neutral-600">
+                                {t('row.paid')}
+                              </span>
+                            ) : (
+                              <span className="badge bg-amber-100 text-amber-800">
+                                {t('row.unpaid')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {s.rateModel === 'per_kg' && s.kgs.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2 pl-11">
+                            {s.kgs.map((kg, i) => {
+                              const progress =
+                                s.kgs.length > 1 ? i / (s.kgs.length - 1) : 1;
+                              const lightness = 88 - progress * 46;
+                              const bg = `hsl(210, 90%, ${lightness}%)`;
+                              const color =
+                                lightness > 62 ? 'hsl(210, 90%, 22%)' : 'white';
+                              return (
+                                <span
+                                  key={i}
+                                  className="badge"
+                                  style={{ backgroundColor: bg, color }}
+                                >
+                                  +{formatKgShort(kg)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

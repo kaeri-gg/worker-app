@@ -1,10 +1,18 @@
-export type WorkerType = 'picker' | 'driver' | 'shaker' | 'broker';
+export type WorkerType = 'picker' | 'driver' | 'shaker';
 
-export const WORKER_TYPES: WorkerType[] = ['picker', 'driver', 'shaker', 'broker'];
+export const WORKER_TYPES: WorkerType[] = ['picker', 'driver', 'shaker'];
 
 export type SessionStatus = 'open' | 'closed';
 
 export type RateModel = 'per_kg' | 'daily';
+
+export type DriverPayMode = 'per_pax' | 'fixed' | 'per_kg';
+
+export const DRIVER_PAY_MODES: DriverPayMode[] = ['per_pax', 'fixed', 'per_kg'];
+
+export type WorkerPayMode = 'flat' | 'per_weight';
+
+export const WORKER_PAY_MODES: WorkerPayMode[] = ['flat', 'per_weight'];
 
 export interface Worker {
   id: string;
@@ -31,6 +39,10 @@ export interface SessionRow {
   rateModel: RateModel;
   rate: number;
   addedAt: number;
+  parentDriverRowId?: string;
+  driverPayMode?: DriverPayMode;
+  workerPayMode?: WorkerPayMode;
+  pickerFlatRate?: number;
 }
 
 export interface Entry {
@@ -76,9 +88,7 @@ export interface Settings {
   weightUnit: 'kg' | 'lb';
   language: LanguageCode;
   pickerRatePerKg: number;
-  driverDailyRate: number;
   shakerDailyRate: number;
-  brokerDailyRate: number;
   fontScale: number;
 }
 
@@ -88,9 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weightUnit: 'kg',
   language: 'en',
   pickerRatePerKg: 1,
-  driverDailyRate: 50,
   shakerDailyRate: 40,
-  brokerDailyRate: 30,
   fontScale: 1,
 };
 
