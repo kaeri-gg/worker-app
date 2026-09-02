@@ -13,8 +13,7 @@
     "type": {
       "picker": "Picker",
       "driver": "Driver",
-      "shaker": "Shaker",
-      "broker": "Broker"
+      "shaker": "Shaker"
     },
     "name": "Name",
     "namePlaceholder": "Worker name",
@@ -24,7 +23,10 @@
   "today": {
     "title": "Today",
     "empty": "No workers in this session yet.",
+    "emptyDrivers": "No drivers yet. Add one to get started.",
+    "driverEmpty": "No workers under this driver yet.",
     "addWorker": "Worker",
+    "addDriver": "Add driver",
     "endSession": "End session",
     "endSessionConfirm": "End session and settle all unpaid workers?",
     "startSession": "Start today's session",
@@ -56,6 +58,7 @@
     "noEntries": "No entries yet today.",
     "editRateForToday": "Rate today",
     "flatPay": "Flat pay for today",
+    "driverAmount": "Driver amount",
     "close": "Close"
   },
   "roster": {
@@ -73,15 +76,44 @@
     "cancel": "Cancel"
   },
   "pickWorker": {
-    "title": "Add to today",
+    "title": "Add worker",
+    "titleFor": "Add worker under {{driver}}",
     "existing": "Pick from roster",
     "createNew": "Create new worker",
     "alreadyAdded": "Already added",
+    "underOtherDriver": "Under another driver",
     "typePrompt": "Working as today",
     "confirm": "Add",
     "remove": "Remove from session",
     "editType": "Edit worker type",
     "cannotRemove": "Cannot remove: this worker already has logged work or payments."
+  },
+  "addDriver": {
+    "title": "Add driver",
+    "pickExisting": "Pick from roster",
+    "createNew": "Create new driver",
+    "saveDriver": "Create driver",
+    "searchDriver": "Search drivers…",
+    "noDrivers": "No drivers in roster yet.",
+    "alreadyAdded": "Already added",
+    "driverPayMode": "Driver pay mode",
+    "workerPayMode": "Worker pay mode",
+    "pickerFlatRate": "Picker flat pay",
+    "save": "Add to session",
+    "driverMode": {
+      "per_pax": "Per worker",
+      "fixed": "Fixed amount",
+      "per_kg": "Per kg"
+    },
+    "workerMode": {
+      "flat": "Flat rate",
+      "per_weight": "Per weight"
+    },
+    "driverRateLabel": {
+      "per_pax": "Rate per worker",
+      "fixed": "Fixed amount",
+      "per_kg": "Rate per kg"
+    }
   },
   "sessions": {
     "title": "Sessions",
@@ -105,9 +137,7 @@
     "fontSizePreview": "Preview",
     "rates": "Pay rates",
     "pickerRate": "Picker rate (per kg)",
-    "driverRate": "Driver daily rate",
     "shakerRate": "Shaker daily rate",
-    "brokerRate": "Broker daily rate",
     "save": "Save",
     "saved": "Saved",
     "history": "Worker history",

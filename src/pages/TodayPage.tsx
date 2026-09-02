@@ -13,29 +13,32 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { TypeBadge } from '@/components/TypeBadge';
 import { PickWorkerSheet } from '@/components/PickWorkerSheet';
+import { AddDriverSheet } from '@/components/AddDriverSheet';
 import { WorkerDetailSheet } from '@/components/WorkerDetailSheet';
 import { AddKgSheet } from '@/components/AddKgSheet';
 import { formatKg, formatKgShort, formatMoney } from '@/lib/format';
 import { todayISO } from '@/lib/id';
 import { useSettings } from '@/hooks/useSettings';
-import { usePagination } from '@/hooks/usePagination';
-import { Pagination } from '@/components/Pagination';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import type { SortMode } from '@/lib/filterSort';
-import { WORKER_TYPES, type WorkerType } from '@/db/types';
+import type { DriverPayMode } from '@/db/types';
+
+const DRIVER_MODE_KEY: Record<DriverPayMode, string> = {
+  per_pax: 'addDriver.driverMode.per_pax',
+  fixed: 'addDriver.driverMode.fixed',
+  per_kg: 'addDriver.driverMode.per_kg',
+};
 
 export function TodayPage() {
   const { t } = useTranslation();
   const settings = useSettings();
-  const [pickOpen, setPickOpen] = useState(false);
+  const [addDriverOpen, setAddDriverOpen] = useState(false);
+  const [pickWorkerForDriver, setPickWorkerForDriver] = useState<{
+    rowId: string;
+    name: string;
+  } | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [kgRow, setKgRow] = useState<{ id: string; name: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [tab, setTab] = useState<'unpaid' | 'paid'>('unpaid');
-  const [roleFilter, setRoleFilter] = useState<WorkerType | 'all'>('all');
-  const [sort, setSort] = useState<SortMode>('alpha');
-  const [showFilters, setShowFilters] = useState(false);
-  const [search, setSearch] = useState('');
   const [payingRow, setPayingRow] = useState<{
     id: string;
     name: string;
@@ -64,53 +67,40 @@ export function TodayPage() {
       [session?.id],
     ) ?? [];
 
-  const tabSummary = useMemo(() => {
-    let paidCount = 0;
-    let unpaidCount = 0;
-    let paidAmount = 0;
-    let unpaidAmount = 0;
-    let totalKg = 0;
+  const drivers = useMemo(
+    () =>
+      [...summaries]
+        .filter((s) => s.type === 'driver')
+        .sort((a, b) => a.workerName.localeCompare(b.workerName)),
+    [summaries],
+  );
+  const workersByDriver = useMemo(() => {
+    const map = new Map<string, RowSummary[]>();
     for (const s of summaries) {
-      totalKg += s.totalKg;
-      if (s.isPaid) {
-        paidCount += 1;
-        paidAmount += s.amount;
-      } else {
-        unpaidCount += 1;
-        unpaidAmount += s.unpaidAmount;
-      }
+      if (s.type === 'driver') continue;
+      const key = s.parentDriverRowId ?? '';
+      if (!key) continue;
+      const list = map.get(key) ?? [];
+      list.push(s);
+      map.set(key, list);
     }
-    return { paidCount, unpaidCount, paidAmount, unpaidAmount, totalKg };
+    for (const list of map.values()) {
+      list.sort((a, b) => a.workerName.localeCompare(b.workerName));
+    }
+    return map;
   }, [summaries]);
 
-  const processed = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const filtered = summaries.filter((s) => {
-      if (tab === 'paid' ? !s.isPaid : s.isPaid) return false;
-      if (roleFilter !== 'all' && s.type !== roleFilter) return false;
-      if (q && !s.workerName.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    return [...filtered].sort((a, b) => {
-      switch (sort) {
-        case 'alpha':
-          return a.workerName.localeCompare(b.workerName);
-        case 'kg_desc':
-          return b.totalKg - a.totalKg;
-        case 'kg_asc':
-          return a.totalKg - b.totalKg;
-      }
-    });
-  }, [summaries, tab, roleFilter, sort, search]);
-  const pg = usePagination(processed);
-
-  const totals = {
-    totalKg: tabSummary.totalKg,
-    paid: tabSummary.paidAmount,
-    unpaid: tabSummary.unpaidAmount,
-  };
-
-  const filterActive = roleFilter !== 'all' || sort !== 'alpha';
+  const totals = useMemo(() => {
+    let totalKg = 0;
+    let paid = 0;
+    let unpaid = 0;
+    for (const s of summaries) {
+      totalKg += s.type === 'driver' ? 0 : s.totalKg;
+      if (s.isPaid) paid += s.amount;
+      else unpaid += s.unpaidAmount;
+    }
+    return { totalKg, paid, unpaid };
+  }, [summaries]);
 
   if (sessionResult === undefined) return null;
 
@@ -135,211 +125,106 @@ export function TodayPage() {
         </div>
         <button
           className="btn bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 shrink-0"
-          disabled={summaries.length === 0}
+          disabled={drivers.length === 0}
           onClick={() => setConfirming(true)}
         >
           {t('today.endSession')}
         </button>
       </header>
 
-      {summaries.length > 0 && (
-        <div className="card p-3 mb-4 flex items-center justify-between">
-          <span className="text-[11px] uppercase tracking-wide text-neutral-500">
-            {t('today.totalKg')}
-          </span>
-          <span className="font-semibold">
-            {formatKg(totals.totalKg, settings.weightUnit)}
-          </span>
+      {drivers.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="card p-3">
+            <div className="text-[11px] uppercase text-neutral-500">
+              {t('today.totalKg')}
+            </div>
+            <div className="font-semibold">
+              {formatKg(totals.totalKg, settings.weightUnit)}
+            </div>
+          </div>
+          <div className="card p-3">
+            <div className="text-[11px] uppercase text-neutral-500">
+              {t('today.totalPaid')}
+            </div>
+            <div className="font-semibold">
+              {formatMoney(totals.paid, settings.currency)}
+            </div>
+          </div>
+          <div className="card p-3">
+            <div className="text-[11px] uppercase text-neutral-500">
+              {t('today.totalUnpaid')}
+            </div>
+            <div className="font-semibold">
+              {formatMoney(totals.unpaid, settings.currency)}
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="mb-4">
         <button
-          className="btn-primary shrink-0"
-          onClick={() => setPickOpen(true)}
+          className="btn-primary w-full"
+          onClick={() => setAddDriverOpen(true)}
         >
-          + {t('today.addWorker')}
+          + {t('today.addDriver')}
         </button>
-        {summaries.length > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
-            <input
-              className="input w-40"
-              placeholder={t('history.searchWorker')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <button
-              type="button"
-              className={`btn shrink-0 !p-0 w-10 h-10 relative ${
-                showFilters || filterActive
-                  ? 'bg-brand-700 text-white hover:bg-brand-800'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-              }`}
-              onClick={() => setShowFilters((s) => !s)}
-              aria-label={t('filter.title')}
-              aria-expanded={showFilters}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-                aria-hidden="true"
-              >
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-              </svg>
-              {filterActive && !showFilters && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white" />
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
-      {summaries.length > 0 && showFilters && (
-        <div className="card p-3 mb-3 space-y-3">
-          <div>
-            <div className="text-xs text-neutral-500 mb-1">{t('filter.role')}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {(['all', ...WORKER_TYPES] as const).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  className={`badge ${
-                    roleFilter === f
-                      ? 'bg-brand-700 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                  }`}
-                  onClick={() => setRoleFilter(f)}
-                  aria-pressed={roleFilter === f}
-                >
-                  {f === 'all' ? t('filter.all') : t(`worker.type.${f}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-neutral-500 mb-1">{t('sort.label')}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {(['alpha', 'kg_desc', 'kg_asc'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`badge ${
-                    sort === mode
-                      ? 'bg-brand-700 text-white'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                  }`}
-                  onClick={() => setSort(mode)}
-                  aria-pressed={sort === mode}
-                >
-                  {mode === 'alpha'
-                    ? t('sort.alpha')
-                    : mode === 'kg_desc'
-                      ? t('sort.kgDesc')
-                      : t('sort.kgAsc')}
-                </button>
-              ))}
-            </div>
-          </div>
+      {drivers.length === 0 ? (
+        <div className="card p-6 text-center text-neutral-500">
+          {t('today.emptyDrivers')}
         </div>
-      )}
-
-      {summaries.length > 0 && (
-        <div className="flex gap-1 p-1 rounded-xl bg-neutral-100 mb-3">
-          <button
-            className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
-              tab === 'unpaid' ? 'bg-white shadow-sm' : ''
-            }`}
-            onClick={() => setTab('unpaid')}
-          >
-            <div className="text-sm font-medium">{t('row.unpaid')}</div>
-            <div className="text-[11px] text-neutral-500">
-              {tabSummary.unpaidCount} ·{' '}
-              {formatMoney(tabSummary.unpaidAmount, settings.currency)}
-            </div>
-          </button>
-          <button
-            className={`flex-1 py-2 px-2 rounded-lg text-left transition ${
-              tab === 'paid' ? 'bg-white shadow-sm' : ''
-            }`}
-            onClick={() => setTab('paid')}
-          >
-            <div className="text-sm font-medium">{t('row.paid')}</div>
-            <div className="text-[11px] text-neutral-500">
-              {tabSummary.paidCount} ·{' '}
-              {formatMoney(tabSummary.paidAmount, settings.currency)}
-            </div>
-          </button>
-        </div>
-      )}
-
-      {summaries.length === 0 ? (
-        <div className="card p-6 text-center text-neutral-500">{t('today.empty')}</div>
-      ) : processed.length === 0 ? (
-        <div className="card p-6 text-center text-neutral-500">—</div>
       ) : (
-        <ul className="space-y-2">
-          {pg.sliced.map((s) => (
-            <li key={s.rowId}>
-              <div className="card p-3">
+        <ul className="space-y-4">
+          {drivers.map((d) => {
+            const workers = workersByDriver.get(d.rowId) ?? [];
+            return (
+              <li key={d.rowId} className="card p-3 space-y-3">
                 <div className="flex items-center gap-3">
                   <button
                     className="flex items-center gap-3 grow min-w-0 text-left"
-                    onClick={() => setDetailRowId(s.rowId)}
+                    onClick={() => setDetailRowId(d.rowId)}
                   >
-                    <Avatar name={s.workerName} src={s.workerPhoto} size={44} />
+                    <Avatar name={d.workerName} src={d.workerPhoto} size={44} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium truncate">{s.workerName}</span>
-                        <TypeBadge type={s.type} />
+                        <span className="font-medium truncate">
+                          {d.workerName}
+                        </span>
+                        <TypeBadge type="driver" />
                       </div>
-                      {s.rateModel === 'per_kg' ? (
-                        s.kgs.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {s.kgs.map((kg, i) => (
-                              <span
-                                key={i}
-                                className="badge bg-neutral-100 text-neutral-600"
-                              >
-                                +{formatKgShort(kg)}
-                              </span>
-                            ))}
-                            <span className="badge bg-amber-100 text-amber-800">
-                              = {formatKg(s.totalKg, settings.weightUnit)}
-                            </span>
-                          </div>
-                        )
-                      ) : (
-                        <div className="text-xs text-neutral-500 mt-0.5">
-                          {t('row.flatRate')}
-                        </div>
-                      )}
+                      <div className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        {d.driverPayMode && (
+                          <span className="badge bg-blue-50 text-blue-700">
+                            {t(DRIVER_MODE_KEY[d.driverPayMode])}
+                          </span>
+                        )}
+                        {d.workerPayMode && (
+                          <span className="badge bg-neutral-100 text-neutral-600">
+                            {t(`addDriver.workerMode.${d.workerPayMode}`)}
+                          </span>
+                        )}
+                        <span>· {workers.length} {t('sessions.workers')}</span>
+                        {d.driverPayMode === 'per_kg' && (
+                          <span>
+                            · {formatKg(d.totalKg, settings.weightUnit)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
-                  <div className="flex gap-2 shrink-0">
-                    {s.rateModel === 'per_kg' && (
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="font-semibold">
+                      {formatMoney(d.amount, settings.currency)}
+                    </div>
+                    {d.isPaid ? (
                       <button
-                        className="btn-secondary"
-                        disabled={s.isPaid}
-                        onClick={() =>
-                          setKgRow({ id: s.rowId, name: s.workerName })
-                        }
-                      >
-                        {t('row.addKg')}
-                      </button>
-                    )}
-                    {s.isPaid ? (
-                      <button
-                        className="btn bg-amber-600 text-white hover:bg-amber-700"
+                        className="btn bg-amber-600 text-white hover:bg-amber-700 text-xs px-2 py-1"
                         onClick={() =>
                           setRevertingRow({
-                            id: s.rowId,
-                            name: s.workerName,
-                            amount: s.amount,
+                            id: d.rowId,
+                            name: d.workerName,
+                            amount: d.amount,
                           })
                         }
                       >
@@ -347,15 +232,13 @@ export function TodayPage() {
                       </button>
                     ) : (
                       <button
-                        className="btn-primary"
-                        disabled={
-                          s.rateModel === 'per_kg' && s.unpaidEntryCount === 0
-                        }
+                        className="btn-primary text-xs px-2 py-1"
+                        disabled={d.amount <= 0}
                         onClick={() =>
                           setPayingRow({
-                            id: s.rowId,
-                            name: s.workerName,
-                            amount: s.unpaidAmount,
+                            id: d.rowId,
+                            name: d.workerName,
+                            amount: d.unpaidAmount,
                           })
                         }
                       >
@@ -364,26 +247,127 @@ export function TodayPage() {
                     )}
                   </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
 
-      {processed.length > 0 && (
-        <Pagination
-          page={pg.page}
-          pageSize={pg.pageSize}
-          pageCount={pg.pageCount}
-          total={pg.total}
-          start={pg.start}
-          end={pg.end}
-          canPrev={pg.canPrev}
-          canNext={pg.canNext}
-          onPageSizeChange={pg.setPageSize}
-          onPrev={pg.prev}
-          onNext={pg.next}
-        />
+                <div className="pl-2 border-l-2 border-neutral-100 space-y-2">
+                  {workers.length === 0 ? (
+                    <div className="text-sm text-neutral-500 py-2 px-1">
+                      {t('today.driverEmpty')}
+                    </div>
+                  ) : (
+                    workers.map((s) => (
+                      <div key={s.rowId} className="flex items-center gap-3">
+                        <button
+                          className="flex items-center gap-3 grow min-w-0 text-left"
+                          onClick={() => setDetailRowId(s.rowId)}
+                        >
+                          <Avatar
+                            name={s.workerName}
+                            src={s.workerPhoto}
+                            size={36}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-medium truncate">
+                                {s.workerName}
+                              </span>
+                              <TypeBadge type={s.type} />
+                            </div>
+                            {s.rateModel === 'per_kg' ? (
+                              s.kgs.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {s.kgs.map((kg, i) => (
+                                    <span
+                                      key={i}
+                                      className="badge bg-neutral-100 text-neutral-600"
+                                    >
+                                      +{formatKgShort(kg)}
+                                    </span>
+                                  ))}
+                                  <span className="badge bg-amber-100 text-amber-800">
+                                    = {formatKg(s.totalKg, settings.weightUnit)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-neutral-500 mt-0.5">
+                                  {formatMoney(s.rate, settings.currency)}/kg
+                                </div>
+                              )
+                            ) : (
+                              <div className="text-xs text-neutral-500 mt-0.5">
+                                {formatMoney(s.rate, settings.currency)} ·{' '}
+                                {t('row.flatRate')}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <div className="font-semibold text-sm">
+                            {formatMoney(s.amount, settings.currency)}
+                          </div>
+                          <div className="flex gap-1">
+                          {s.rateModel === 'per_kg' && (
+                            <button
+                              className="btn-secondary text-xs px-2 py-1"
+                              disabled={s.isPaid}
+                              onClick={() =>
+                                setKgRow({ id: s.rowId, name: s.workerName })
+                              }
+                            >
+                              {t('row.addKg')}
+                            </button>
+                          )}
+                          {s.isPaid ? (
+                            <button
+                              className="btn bg-amber-600 text-white hover:bg-amber-700 text-xs px-2 py-1"
+                              onClick={() =>
+                                setRevertingRow({
+                                  id: s.rowId,
+                                  name: s.workerName,
+                                  amount: s.amount,
+                                })
+                              }
+                            >
+                              {t('row.revert')}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-primary text-xs px-2 py-1"
+                              disabled={
+                                s.rateModel === 'per_kg' &&
+                                s.unpaidEntryCount === 0
+                              }
+                              onClick={() =>
+                                setPayingRow({
+                                  id: s.rowId,
+                                  name: s.workerName,
+                                  amount: s.unpaidAmount,
+                                })
+                              }
+                            >
+                              {t('row.markPaid')}
+                            </button>
+                          )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <button
+                    className="btn-ghost text-brand-700 text-sm w-full text-left"
+                    onClick={() =>
+                      setPickWorkerForDriver({
+                        rowId: d.rowId,
+                        name: d.workerName,
+                      })
+                    }
+                  >
+                    + {t('today.addWorker')}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <ConfirmDialog
@@ -430,11 +414,20 @@ export function TodayPage() {
         confirmLabel={t('row.revert')}
       />
 
-      <PickWorkerSheet
-        open={pickOpen}
-        onClose={() => setPickOpen(false)}
+      <AddDriverSheet
+        open={addDriverOpen}
+        onClose={() => setAddDriverOpen(false)}
         sessionId={session.id}
       />
+      {pickWorkerForDriver && (
+        <PickWorkerSheet
+          open={pickWorkerForDriver !== null}
+          onClose={() => setPickWorkerForDriver(null)}
+          sessionId={session.id}
+          driverRowId={pickWorkerForDriver.rowId}
+          driverName={pickWorkerForDriver.name}
+        />
+      )}
       <WorkerDetailSheet
         open={detailRowId !== null}
         onClose={() => setDetailRowId(null)}

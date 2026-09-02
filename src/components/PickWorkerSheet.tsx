@@ -12,15 +12,25 @@ import {
   removeWorkerFromSession,
   updateWorker,
 } from '@/db/actions';
-import { WORKER_TYPES, type WorkerType } from '@/db/types';
+import type { WorkerType } from '@/db/types';
+
+const CHILD_TYPES: WorkerType[] = ['picker', 'shaker'];
 
 interface Props {
   open: boolean;
   onClose: () => void;
   sessionId: string;
+  driverRowId: string;
+  driverName?: string;
 }
 
-export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
+export function PickWorkerSheet({
+  open,
+  onClose,
+  sessionId,
+  driverRowId,
+  driverName,
+}: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<'pick' | 'new'>('pick');
   const [search, setSearch] = useState('');
@@ -28,13 +38,40 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
   const [editingTypeFor, setEditingTypeFor] = useState<string | null>(null);
 
   const workers =
-    useLiveQuery(() => db.workers.filter((w) => !w.archived).toArray(), []) ?? [];
-  const takenRows =
+    useLiveQuery(
+      () =>
+        db.workers
+          .filter((w) => !w.archived && w.type !== 'driver')
+          .toArray(),
+      [],
+    ) ?? [];
+  const sessionRows =
     useLiveQuery(
       () => db.sessionRows.where({ sessionId }).toArray(),
       [sessionId],
     ) ?? [];
-  const taken = useMemo(() => new Set(takenRows.map((r) => r.workerId)), [takenRows]);
+  const takenByThisDriver = useMemo(
+    () =>
+      new Set(
+        sessionRows
+          .filter((r) => r.parentDriverRowId === driverRowId)
+          .map((r) => r.workerId),
+      ),
+    [sessionRows, driverRowId],
+  );
+  const takenByOtherDriver = useMemo(
+    () =>
+      new Set(
+        sessionRows
+          .filter(
+            (r) =>
+              r.type !== 'driver' &&
+              r.parentDriverRowId !== driverRowId,
+          )
+          .map((r) => r.workerId),
+      ),
+    [sessionRows, driverRowId],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -54,7 +91,8 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
     onClose();
   };
 
-  const add = (workerId: string) => addWorkerToSession(sessionId, workerId);
+  const add = (workerId: string) =>
+    addWorkerToSession(sessionId, workerId, driverRowId);
 
   const remove = async (workerId: string) => {
     try {
@@ -70,13 +108,22 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
   };
 
   const createAndAdd = async (v: { name: string; type: WorkerType; photo?: string }) => {
+    if (v.type === 'driver') return;
     const w = await createWorker(v);
-    await addWorkerToSession(sessionId, w.id);
+    await addWorkerToSession(sessionId, w.id, driverRowId);
     handleClose();
   };
 
   return (
-    <Sheet open={open} onClose={handleClose} title={t('pickWorker.title')}>
+    <Sheet
+      open={open}
+      onClose={handleClose}
+      title={
+        driverName
+          ? t('pickWorker.titleFor', { driver: driverName })
+          : t('pickWorker.title')
+      }
+    >
       <div className="flex gap-2 mb-3">
         <button
           className={`btn flex-1 ${
@@ -105,7 +152,7 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {(['all', ...WORKER_TYPES] as const).map((f) => (
+            {(['all', ...CHILD_TYPES] as const).map((f) => (
               <button
                 key={f}
                 type="button"
@@ -128,53 +175,63 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
           )}
           <ul className="divide-y divide-neutral-100">
             {filtered.map((w) => {
-              const already = taken.has(w.id);
+              const here = takenByThisDriver.has(w.id);
+              const elsewhere = takenByOtherDriver.has(w.id);
+              const disabled = elsewhere;
               const editing = editingTypeFor === w.id;
               return (
                 <li
                   key={w.id}
-                  className={`py-2 px-2 -mx-2 rounded-lg ${already ? 'bg-neutral-100' : ''}`}
+                  className={`py-2 px-2 -mx-2 rounded-lg ${
+                    here ? 'bg-neutral-100' : ''
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={already ? 'opacity-50 grayscale' : ''}>
+                    <div className={disabled || here ? 'opacity-50 grayscale' : ''}>
                       <Avatar name={w.name} src={w.photo} size={40} />
                     </div>
                     <div className="grow min-w-0 flex items-center gap-2">
                       <div
                         className={`font-medium truncate ${
-                          already ? 'text-neutral-400' : ''
+                          disabled || here ? 'text-neutral-400' : ''
                         }`}
                       >
                         {w.name}
                       </div>
-                      <span className={already ? 'opacity-50 grayscale' : ''}>
+                      <span className={disabled || here ? 'opacity-50 grayscale' : ''}>
                         <TypeBadge type={w.type} />
                       </span>
-                      <button
-                        type="button"
-                        className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
-                        onClick={() => setEditingTypeFor(editing ? null : w.id)}
-                        aria-label={t('pickWorker.editType')}
-                        title={t('pickWorker.editType')}
-                        aria-pressed={editing}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="w-3.5 h-3.5"
-                          aria-hidden="true"
+                      {!disabled && (
+                        <button
+                          type="button"
+                          className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
+                          onClick={() => setEditingTypeFor(editing ? null : w.id)}
+                          aria-label={t('pickWorker.editType')}
+                          title={t('pickWorker.editType')}
+                          aria-pressed={editing}
                         >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                        </svg>
-                      </button>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-3.5 h-3.5"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
-                    {already ? (
+                    {disabled ? (
+                      <span className="badge bg-neutral-100 text-neutral-500 shrink-0">
+                        {t('pickWorker.underOtherDriver')}
+                      </span>
+                    ) : here ? (
                       <button
                         className="btn !p-0 !rounded-full w-9 h-9 shrink-0 bg-neutral-200 text-neutral-600 hover:bg-neutral-300"
                         onClick={() => remove(w.id)}
@@ -218,9 +275,9 @@ export function PickWorkerSheet({ open, onClose, sessionId }: Props) {
                       </button>
                     )}
                   </div>
-                  {editing && (
+                  {editing && !disabled && (
                     <div className="pl-[3.25rem] pt-2 flex flex-wrap gap-1">
-                      {WORKER_TYPES.map((wt) => (
+                      {CHILD_TYPES.map((wt) => (
                         <button
                           key={wt}
                           className={`badge ${

@@ -13,8 +13,7 @@
     "type": {
       "picker": "მკრეფავი",
       "driver": "მძღოლი",
-      "shaker": "მრხევი",
-      "broker": "ბროკერი"
+      "shaker": "მრხევი"
     },
     "name": "სახელი",
     "namePlaceholder": "მუშის სახელი",
@@ -24,7 +23,10 @@
   "today": {
     "title": "დღეს",
     "empty": "დღეს მუშები ჯერ არ დამატებულა.",
+    "emptyDrivers": "მძღოლი ჯერ არ არის. დაამატე დასაწყებად.",
+    "driverEmpty": "ამ მძღოლს ჯერ არ ჰყავს მუშები.",
     "addWorker": "მუშა",
+    "addDriver": "მძღოლის დამატება",
     "endSession": "სესიის დახურვა",
     "endSessionConfirm": "დახუროთ სესია და გადაიხადოთ ყველა გადაუხდელი?",
     "startSession": "დღევანდელი სესიის დაწყება",
@@ -56,6 +58,7 @@
     "noEntries": "დღეს ჯერ ჩანაწერი არ არის.",
     "editRateForToday": "დღევანდელი ტარიფი",
     "flatPay": "დღიური ფიქსირებული",
+    "driverAmount": "მძღოლის ანაზღაურება",
     "close": "დახურვა"
   },
   "roster": {
@@ -73,15 +76,44 @@
     "cancel": "გაუქმება"
   },
   "pickWorker": {
-    "title": "დღეს დამატება",
+    "title": "მუშის დამატება",
+    "titleFor": "მუშის დამატება — {{driver}}",
     "existing": "აირჩიე სიიდან",
     "createNew": "ახლის შექმნა",
     "alreadyAdded": "უკვე დამატებულია",
+    "underOtherDriver": "სხვა მძღოლთან",
     "typePrompt": "დღეს მუშაობს როგორც",
     "confirm": "დამატება",
     "remove": "სესიიდან წაშლა",
     "editType": "მუშის ტიპის შეცვლა",
     "cannotRemove": "ვერ წაიშლება: ამ მუშას უკვე აქვს ჩანაწერები ან გადახდები."
+  },
+  "addDriver": {
+    "title": "მძღოლის დამატება",
+    "pickExisting": "აირჩიე სიიდან",
+    "createNew": "ახალი მძღოლი",
+    "saveDriver": "შექმენი მძღოლი",
+    "searchDriver": "მძღოლის ძებნა…",
+    "noDrivers": "სიაში მძღოლი ჯერ არ არის.",
+    "alreadyAdded": "უკვე დამატებულია",
+    "driverPayMode": "მძღოლის ანაზღაურების ტიპი",
+    "workerPayMode": "მუშების ანაზღაურების ტიპი",
+    "pickerFlatRate": "მკრეფავის ფიქსირებული",
+    "save": "სესიაში დამატება",
+    "driverMode": {
+      "per_pax": "ერთ მუშაზე",
+      "fixed": "ფიქსირებული თანხა",
+      "per_kg": "კგ-ზე"
+    },
+    "workerMode": {
+      "flat": "ფიქსირებული",
+      "per_weight": "წონის მიხედვით"
+    },
+    "driverRateLabel": {
+      "per_pax": "ტარიფი ერთ მუშაზე",
+      "fixed": "ფიქსირებული თანხა",
+      "per_kg": "ტარიფი კგ-ზე"
+    }
   },
   "sessions": {
     "title": "სესიები",
@@ -105,9 +137,7 @@
     "fontSizePreview": "მაგალითი",
     "rates": "ტარიფები",
     "pickerRate": "მკრეფავის ტარიფი (კგ-ზე)",
-    "driverRate": "მძღოლის დღიური",
     "shakerRate": "მრხევის დღიური",
-    "brokerRate": "ბროკერის დღიური",
     "save": "შენახვა",
     "saved": "შენახულია",
     "history": "მუშის ისტორია",

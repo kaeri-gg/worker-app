@@ -148,19 +148,9 @@ export function SettingsPage() {
           onChange={(n) => void set({ pickerRatePerKg: n })}
         />
         <NumberField
-          label={t('settings.driverRate')}
-          value={settings.driverDailyRate}
-          onChange={(n) => void set({ driverDailyRate: n })}
-        />
-        <NumberField
           label={t('settings.shakerRate')}
           value={settings.shakerDailyRate}
           onChange={(n) => void set({ shakerDailyRate: n })}
-        />
-        <NumberField
-          label={t('settings.brokerRate')}
-          value={settings.brokerDailyRate}
-          onChange={(n) => void set({ brokerDailyRate: n })}
         />
         <p className="text-xs text-neutral-500">
           Changes apply to new session entries. Ongoing session rates stay locked at

@@ -18,6 +18,12 @@ import type { Entry } from '@/db/types';
 import { formatKg, formatMoney, formatTime } from '@/lib/format';
 import { useSettings } from '@/hooks/useSettings';
 
+const DRIVER_MODE_KEY = {
+  per_pax: 'addDriver.driverMode.per_pax',
+  fixed: 'addDriver.driverMode.fixed',
+  per_kg: 'addDriver.driverMode.per_kg',
+} as const;
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -83,7 +89,7 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
               {t('workerDetail.close')}
             </button>
             <div className="flex gap-2">
-              {row.rateModel === 'per_kg' && (
+              {row.type !== 'driver' && row.rateModel === 'per_kg' && (
                 <button
                   className="btn-secondary"
                   disabled={summary.isPaid}
@@ -104,8 +110,10 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
                 <button
                   className="btn-primary"
                   disabled={
-                    row.rateModel === 'per_kg' &&
-                    summary.unpaidEntryCount === 0
+                    (row.type !== 'driver' &&
+                      row.rateModel === 'per_kg' &&
+                      summary.unpaidEntryCount === 0) ||
+                    summary.amount <= 0
                   }
                   onClick={() => setConfirmPay(true)}
                 >
@@ -134,24 +142,77 @@ export function WorkerDetailSheet({ open, onClose, rowId }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="label">
-              {row.rateModel === 'per_kg'
-                ? `${t('workerDetail.editRateForToday')} (${settings.currency}/kg)`
-                : `${t('workerDetail.flatPay')} (${settings.currency})`}
-            </label>
-            <input
-              className="input"
-              type="text"
-              inputMode="decimal"
-              value={rateDraft ?? String(row.rate)}
-              onFocus={() => setRateDraft(String(row.rate))}
-              onChange={(e) => setRateDraft(e.target.value)}
-              onBlur={commitRate}
-            />
-          </div>
+          {row.type === 'driver' ? (
+            <div className="card p-3 space-y-1 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">
+                  {t('addDriver.driverPayMode')}
+                </span>
+                <span className="font-medium">
+                  {row.driverPayMode
+                    ? t(DRIVER_MODE_KEY[row.driverPayMode])
+                    : '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">
+                  {row.driverPayMode
+                    ? t(`addDriver.driverRateLabel.${row.driverPayMode}`)
+                    : t('workerDetail.flatPay')}
+                </span>
+                <span className="font-medium">
+                  {formatMoney(row.rate, settings.currency)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">
+                  {t('addDriver.workerPayMode')}
+                </span>
+                <span className="font-medium">
+                  {row.workerPayMode
+                    ? t(`addDriver.workerMode.${row.workerPayMode}`)
+                    : '—'}
+                </span>
+              </div>
+              {row.workerPayMode === 'flat' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">
+                    {t('addDriver.pickerFlatRate')}
+                  </span>
+                  <span className="font-medium">
+                    {formatMoney(row.pickerFlatRate ?? 0, settings.currency)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1 border-t border-neutral-100">
+                <span className="text-neutral-500">
+                  {t('workerDetail.driverAmount')}
+                </span>
+                <span className="font-semibold">
+                  {formatMoney(summary.amount, settings.currency)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="label">
+                {row.rateModel === 'per_kg'
+                  ? `${t('workerDetail.editRateForToday')} (${settings.currency}/kg)`
+                  : `${t('workerDetail.flatPay')} (${settings.currency})`}
+              </label>
+              <input
+                className="input"
+                type="text"
+                inputMode="decimal"
+                value={rateDraft ?? String(row.rate)}
+                onFocus={() => setRateDraft(String(row.rate))}
+                onChange={(e) => setRateDraft(e.target.value)}
+                onBlur={commitRate}
+              />
+            </div>
+          )}
 
-          {row.rateModel === 'per_kg' && (
+          {row.type !== 'driver' && row.rateModel === 'per_kg' && (
             <div>
               <div className="text-sm font-semibold mb-2">{t('workerDetail.history')}</div>
               {(!entries || entries.length === 0) && (

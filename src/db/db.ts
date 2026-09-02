@@ -72,6 +72,56 @@ class HarvestDB extends Dexie {
           await tx.table<WorkerChange>('workerChanges').bulkAdd(migrated);
         }
       });
+    this.version(4)
+      .stores({
+        sessionRows: 'id, sessionId, workerId, parentDriverRowId, [sessionId+workerId]',
+      })
+      .upgrade(async (tx) => {
+        const brokers = await tx
+          .table<Worker>('workers')
+          .filter((w) => (w.type as string) === 'broker')
+          .toArray();
+        const brokerIds = new Set(brokers.map((w) => w.id));
+        if (brokerIds.size > 0) {
+          const rows = await tx.table<SessionRow>('sessionRows').toArray();
+          const brokerRowIds = new Set(
+            rows.filter((r) => brokerIds.has(r.workerId)).map((r) => r.id),
+          );
+          const entries = await tx.table<Entry>('entries').toArray();
+          const brokerEntryIds = entries
+            .filter(
+              (e) => brokerIds.has(e.workerId) || brokerRowIds.has(e.sessionRowId),
+            )
+            .map((e) => e.id);
+          const payments = await tx.table<Payment>('payments').toArray();
+          const brokerPaymentIds = payments
+            .filter(
+              (p) => brokerIds.has(p.workerId) || brokerRowIds.has(p.sessionRowId),
+            )
+            .map((p) => p.id);
+          const changes = await tx.table<WorkerChange>('workerChanges').toArray();
+          const brokerChangeIds = changes
+            .filter((c) => brokerIds.has(c.workerId))
+            .map((c) => c.id);
+
+          await tx.table('entries').bulkDelete(brokerEntryIds);
+          await tx.table('payments').bulkDelete(brokerPaymentIds);
+          await tx.table('sessionRows').bulkDelete([...brokerRowIds]);
+          await tx.table('workerChanges').bulkDelete(brokerChangeIds);
+          await tx.table('workers').bulkDelete([...brokerIds]);
+        }
+        const s = await tx
+          .table<Settings & { brokerDailyRate?: number; driverDailyRate?: number }>(
+            'settings',
+          )
+          .get('singleton');
+        if (s && ('brokerDailyRate' in s || 'driverDailyRate' in s)) {
+          const { brokerDailyRate, driverDailyRate, ...rest } = s;
+          void brokerDailyRate;
+          void driverDailyRate;
+          await tx.table('settings').put(rest);
+        }
+      });
   }
 }
 

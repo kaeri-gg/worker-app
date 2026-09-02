@@ -14,12 +14,21 @@ interface Props {
   onSubmit: (v: WorkerFormValue) => Promise<void> | void;
   onCancel?: () => void;
   submitLabel?: string;
+  lockedType?: WorkerType;
 }
 
-export function WorkerForm({ initial, onSubmit, onCancel, submitLabel }: Props) {
+export function WorkerForm({
+  initial,
+  onSubmit,
+  onCancel,
+  submitLabel,
+  lockedType,
+}: Props) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.name ?? '');
-  const [type, setType] = useState<WorkerType>(initial?.type ?? 'picker');
+  const [type, setType] = useState<WorkerType>(
+    lockedType ?? initial?.type ?? 'picker',
+  );
   const [photo, setPhoto] = useState<string | undefined>(initial?.photo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,20 +69,26 @@ export function WorkerForm({ initial, onSubmit, onCancel, submitLabel }: Props) 
       <div>
         <label className="label">{t('worker.typeLabel')}</label>
         <div className="grid grid-cols-2 gap-2">
-          {WORKER_TYPES.map((wt) => (
-            <button
-              key={wt}
-              type="button"
-              onClick={() => setType(wt)}
-              className={`btn ${
-                type === wt
-                  ? 'bg-brand-700 text-white'
-                  : 'bg-neutral-100 text-neutral-800'
-              }`}
-            >
-              {t(`worker.type.${wt}`)}
-            </button>
-          ))}
+          {WORKER_TYPES.map((wt) => {
+            const disabled = lockedType !== undefined && lockedType !== wt;
+            return (
+              <button
+                key={wt}
+                type="button"
+                disabled={disabled}
+                onClick={() => !disabled && setType(wt)}
+                className={`btn ${
+                  type === wt
+                    ? 'bg-brand-700 text-white'
+                    : disabled
+                      ? 'bg-neutral-50 text-neutral-400 cursor-not-allowed'
+                      : 'bg-neutral-100 text-neutral-800'
+                }`}
+              >
+                {t(`worker.type.${wt}`)}
+              </button>
+            );
+          })}
         </div>
       </div>
       {error && <div className="text-sm text-red-600">{error}</div>}
